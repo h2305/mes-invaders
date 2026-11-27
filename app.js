@@ -113,15 +113,12 @@ const saveFlashed = () => store.put('kv', 'flashed', [...S.flashed]).catch(() =>
 // ---------- Carte ----------
 const map = L.map('map', { zoomControl: false, worldCopyJump: true, tap: true }).setView([48.8566, 2.3522], 12);
 const darkMQ = matchMedia('(prefers-color-scheme: dark)');
-let tiles = null;
-function setTiles() {
-  if (tiles) map.removeLayer(tiles);
-  const style = darkMQ.matches ? 'dark_all' : 'rastertiles/voyager';
-  tiles = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${style}/{z}/{x}/{y}{r}.png`, {
-    subdomains: 'abcd', maxZoom: 20, detectRetina: false,
-    attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>'
-  }).addTo(map);
-}
+// Fond de carte OpenStreetMap (gratuit, sans clé). En mode sombre, les tuiles sont inversées en CSS.
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
+}).addTo(map);
+function setTiles() { document.documentElement.classList.toggle('dark-map', darkMQ.matches); }
 setTiles();
 darkMQ.addEventListener?.('change', setTiles);
 
@@ -277,7 +274,29 @@ function renderNear(fit) {
   const where = S.nearIsMapCenter ? 'autour du centre de la carte' : 'autour de toi';
   $('nearSummary').innerHTML = nearItems.length
     ? `<b>${alive.length}</b> en place ou abîmés ${where} · <b>${fmtN(pts)}</b> pts à gagner`
-    : `Aucun invader non flashé ${where} dans ce rayon. Agrandis le rayon pour en trouver.`;
+    : `Aucun invader non flashé ${where} dans ce rayon.`;
+  if (!nearItems.length) {
+    // Indique quand même le plus proche, hors rayon
+    let best = null, bd = Infinity;
+    for (const inv of S.all) {
+      if (inv.lat == null || S.flashed.has(inv.key) || inv.status === 'destroyed') continue;
+      const d = haversine(o, [inv.lat, inv.lng]);
+      if (d < bd) { bd = d; best = inv; }
+    }
+    if (best) {
+      const li = document.createElement('li');
+      li.innerHTML = `<button type="button" class="near-item">
+        <span class="mk-todo"></span>
+        <span class="ni-main"><span class="ni-id">${esc(best.id)}</span>
+          <span class="ni-sub">Le plus proche · ${esc([best.points != null ? best.points + ' pts' : '', STATUS[best.status]].filter(Boolean).join(' · '))}</span></span>
+        <span class="ni-dist">${fmtDist(bd)}<small>${bearing(o, [best.lat, best.lng])}</small></span>
+      </button>`;
+      li.firstElementChild.addEventListener('click', () => { focusInvader(best); openDetail(best); });
+      $('nearList').textContent = '';
+      $('nearList').appendChild(li);
+      return;
+    }
+  }
 
   const list = $('nearList');
   list.textContent = '';

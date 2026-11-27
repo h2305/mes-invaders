@@ -57,7 +57,8 @@ button { cursor: pointer; }
 :focus-visible { outline: 3px solid var(--flash); outline-offset: 2px; }
 [hidden] { display: none !important; }
 
-#map { position: fixed; inset: 0; background: var(--bg); }
+#map { position: fixed; top: 0; left: 0; right: 0; bottom: calc(-1 * env(safe-area-inset-bottom, 0px)); background: var(--bg); }
+.dark-map .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.9) contrast(.9) saturate(.6); }
 .leaflet-container { font: inherit; background: var(--bg); }
 .leaflet-control-attribution { font-size: 10px; background: color-mix(in srgb, var(--surface) 80%, transparent) !important; color: var(--muted); }
 .leaflet-control-attribution a { color: var(--muted); }

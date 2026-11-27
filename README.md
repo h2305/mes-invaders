@@ -9,7 +9,7 @@ Tout reste sur ton téléphone (IndexedDB). Aucune donnée envoyée à un serveu
 
 ## Données
 Positions : base communautaire https://github.com/goguelnikov/SpaceInvaders (V06, licence MIT), convertie dans `data/invaders.json`.
-Fond de carte : © OpenStreetMap, © CARTO.
+Fond de carte : © OpenStreetMap.
 
 ## Mise en ligne (GitHub Pages)
 1. Mets ces fichiers à la racine d'un dépôt GitHub.
