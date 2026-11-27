@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mes Invaders</title>
+<meta name="description" content="Carte de ma collection d'invaders flashés et des invaders restants autour de moi.">
+<meta name="theme-color" content="#171f40">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Invaders">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap">
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="vendor/MarkerCluster.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="map" aria-label="Carte des invaders"></div>
+
+<header class="topbar">
+  <button id="statsBtn" class="stats" type="button" aria-label="Ouvrir ma collection">
+    <span class="stats-n"><b id="statFlashed">0</b> flashés</span>
+    <span class="stats-p"><b id="statPoints">0</b> pts</span>
+  </button>
+  <form id="searchForm" class="search" role="search" autocomplete="off">
+    <input id="searchInput" type="search" placeholder="PA_1234" aria-label="Chercher un invader" enterkeyhint="search" autocapitalize="characters" spellcheck="false">
+    <ul id="searchResults" class="search-results" hidden></ul>
+  </form>
+</header>
+
+<div class="fabs">
+  <button id="locateBtn" class="fab" type="button" aria-label="Centrer sur ma position">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="square"/><rect x="7" y="7" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"/><rect x="10.5" y="10.5" width="3" height="3" fill="currentColor"/></svg>
+  </button>
+  <button id="collectionBtn" class="fab" type="button" aria-label="Ma collection">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" fill="currentColor"/><rect x="14" y="3" width="7" height="7" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="7" height="7" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="7" height="7" fill="currentColor"/></svg>
+  </button>
+</div>
+
+<section id="nearPanel" class="near" aria-label="Invaders à flasher autour de moi">
+  <div class="near-head">
+    <button id="nearToggle" class="near-toggle" type="button" aria-pressed="false">
+      <span class="sw" aria-hidden="true"><span></span></span>
+      <span id="nearLabel">Invaders restants autour de moi</span>
+    </button>
+    <button id="nearCollapse" class="icon-btn" type="button" aria-label="Replier la liste" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"/></svg>
+    </button>
+  </div>
+  <div id="nearBody" class="near-body" hidden>
+    <div class="near-controls">
+      <div class="chips" role="radiogroup" aria-label="Rayon">
+        <button type="button" class="chip" data-r="300">300 m</button>
+        <button type="button" class="chip" data-r="1000">1 km</button>
+        <button type="button" class="chip" data-r="2000">2 km</button>
+        <button type="button" class="chip" data-r="5000">5 km</button>
+      </div>
+      <label class="check"><input id="showDead" type="checkbox"> Détruits</label>
+    </div>
+    <p id="nearSummary" class="near-summary"></p>
+    <ol id="nearList" class="near-list"></ol>
+  </div>
+</section>
+
+<!-- Fiche d'un invader -->
+<div id="sheetScrim" class="scrim" hidden></div>
+<section id="sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="dId" hidden>
+  <div class="grab" aria-hidden="true"></div>
+  <button id="sheetClose" class="icon-btn close" type="button" aria-label="Fermer">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4"/></svg>
+  </button>
+  <div class="d-photo" id="dPhoto"></div>
+  <div class="d-main">
+    <div class="d-title">
+      <h2 id="dId"></h2>
+      <span id="dFlag" class="flag"></span>
+    </div>
+    <p id="dCity" class="d-city"></p>
+    <dl class="d-facts">
+      <div><dt>Points</dt><dd id="dPoints"></dd></div>
+      <div><dt>État</dt><dd id="dStatus"></dd></div>
+      <div><dt>Distance</dt><dd id="dDist"></dd></div>
+    </dl>
+    <p id="dHint" class="d-hint"></p>
+    <div class="d-actions">
+      <button id="dFlash" class="btn primary" type="button"></button>
+      <label class="btn" for="photoInput" id="dPhotoBtn">Ajouter une photo</label>
+      <a id="dRoute" class="btn" target="_blank" rel="noopener">Itinéraire</a>
+    </div>
+    <button id="dPhotoDel" class="link-btn" type="button" hidden>Supprimer la photo</button>
+  </div>
+  <input id="photoInput" type="file" accept="image/*" hidden>
+</section>
+
+<!-- Ma collection -->
+<section id="panel" class="panel" role="dialog" aria-modal="true" aria-labelledby="panelTitle" hidden>
+  <header class="panel-head">
+    <h2 id="panelTitle">Ma collection</h2>
+    <button id="panelClose" class="icon-btn" type="button" aria-label="Fermer">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4"/></svg>
+    </button>
+  </header>
+  <nav class="tabs" role="tablist">
+    <button type="button" role="tab" class="tab" data-tab="cities" aria-selected="true">Villes</button>
+    <button type="button" role="tab" class="tab" data-tab="import" aria-selected="false">Importer</button>
+    <button type="button" role="tab" class="tab" data-tab="backup" aria-selected="false">Sauvegarde</button>
+  </nav>
+
+  <div class="panel-body" data-view="cities">
+    <div class="big-stats">
+      <div><b id="cFlashed">0</b><span>invaders</span></div>
+      <div><b id="cPoints">0</b><span>points</span></div>
+      <div><b id="cCities">0</b><span>villes</span></div>
+      <div><b id="cPhotos">0</b><span>photos</span></div>
+    </div>
+    <p id="cEmpty" class="empty" hidden>Ta collection est vide. Ouvre l'onglet <b>Importer</b> et colle la liste de tes flashs.</p>
+    <ul id="cityList" class="city-list"></ul>
+  </div>
+
+  <div class="panel-body" data-view="import" hidden>
+    <p class="help">Colle ta liste d'invaders flashés : un par ligne, séparés par des virgules ou mélangés à du texte. Les formats <code>PA_1234</code>, <code>PA 1234</code>, <code>PA-1234</code> et <code>pa_01</code> sont reconnus.</p>
+    <textarea id="importText" rows="8" placeholder="PA_0001, PA_1240, LDN_12&#10;MARS_45&#10;TK 102"></textarea>
+    <div class="row">
+      <label class="btn small" for="importFile">Choisir un fichier .txt / .csv</label>
+      <input id="importFile" type="file" accept=".txt,.csv,.json,text/plain,text/csv" hidden>
+      <button id="importParse" class="btn small primary" type="button">Analyser</button>
+    </div>
+    <div id="importPreview" class="preview" hidden>
+      <p id="importSummary"></p>
+      <details id="importUnknownWrap" hidden><summary>Codes non reconnus</summary><p id="importUnknown" class="mono"></p></details>
+      <fieldset class="radios">
+        <label><input type="radio" name="importMode" value="add" checked> Ajouter à ma collection</label>
+        <label><input type="radio" name="importMode" value="replace"> Remplacer ma collection</label>
+      </fieldset>
+      <button id="importApply" class="btn primary" type="button">Importer</button>
+    </div>
+  </div>
+
+  <div class="panel-body" data-view="backup" hidden>
+    <p class="help">Ta collection et tes photos sont stockées uniquement sur ce téléphone. Exporte une sauvegarde de temps en temps (dans Fichiers ou iCloud Drive) pour ne rien perdre.</p>
+    <div class="stack">
+      <button id="exportBtn" class="btn primary" type="button">Exporter la sauvegarde</button>
+      <label class="check"><input id="exportPhotos" type="checkbox" checked> Inclure les photos en taille réelle</label>
+      <label class="btn" for="restoreFile">Restaurer une sauvegarde</label>
+      <input id="restoreFile" type="file" accept=".json,application/json" hidden>
+      <button id="exportList" class="btn" type="button">Copier la liste de mes flashs</button>
+    </div>
+    <p class="fineprint">Positions des invaders : base communautaire <a href="https://github.com/goguelnikov/SpaceInvaders" target="_blank" rel="noopener">goguelnikov/SpaceInvaders</a> (licence MIT), <span id="dataCount"></span> invaders. Les positions et états peuvent être anciens. Fond de carte © OpenStreetMap, © CARTO.</p>
+  </div>
+</section>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="vendor/leaflet.js"></script>
+<script src="vendor/leaflet.markercluster.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
