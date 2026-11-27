@@ -604,6 +604,168 @@ async function onApply() {
   if (before === 0 && flashedLayer.getLayers().length) map.fitBounds(flashedLayer.getBounds(), { padding: [40, 40], maxZoom: 14 });
 }
 
+// ---------- Import depuis des captures de la galerie Flash Invaders ----------
+let shot = null; // { found: Map(key -> {key, photo, label}), unread: [cells], off: Set }
+const yieldUI = () => new Promise(r => setTimeout(r, 0));
+function canvasThumb(c, size) {
+  const t = document.createElement('canvas');
+  t.width = t.height = size;
+  const s = Math.min(c.width, c.height);
+  t.getContext('2d').drawImage(c, (c.width - s) / 2, (c.height - s) / 2, s, s, 0, 0, size, size);
+  return t.toDataURL('image/jpeg', .75);
+}
+function addFound(cell, key) {
+  const prev = shot.found.get(key);
+  // Garde la version avec une photo complète
+  if (!prev || (!prev.photo && cell.photoCanvas)) {
+    shot.found.set(key, { key, photo: cell.photoCanvas || (prev && prev.photo) || null, labelURL: cell.labelURL });
+  }
+}
+async function onShots(e) {
+  const files = [...(e.target.files || [])];
+  e.target.value = '';
+  if (!files.length) return;
+  const st = $('shotStatus');
+  st.hidden = false;
+  $('shotReview').hidden = true;
+  const known = new Set(S.cities.keys());
+  shot = { found: new Map(), unread: [], off: new Set(), bad: 0, files: files.length };
+  for (let i = 0; i < files.length; i++) {
+    st.textContent = `Lecture de la capture ${i + 1} sur ${files.length}…`;
+    await yieldUI();
+    let a;
+    try { a = await ShotImport.analyze(files[i]); } catch (err) { a = { ok: false, cells: [] }; }
+    if (!a.ok || !a.cells.length) { shot.bad++; continue; }
+    for (const c of a.cells) {
+      const r = ShotImport.readLabel(c.label, known);
+      c.guess = r.text;
+      c.labelURL = c.labelImg().toDataURL('image/png');
+      // Découpe tout de suite les petites images pour libérer la grande capture
+      c.photoCanvas = c.photo ? c.photo() : null;
+      delete c.photo; delete c.labelImg;
+      if (r.key) addFound(c, r.key);
+      else shot.unread.push(c);
+    }
+  }
+  st.hidden = true;
+  renderShotReview();
+}
+function retryUnread() {
+  const known = new Set(S.cities.keys());
+  shot.unread = shot.unread.filter(c => {
+    const r = ShotImport.readLabel(c.label, known);
+    if (r.key) { addFound(c, r.key); return false; }
+    c.guess = r.text;
+    return true;
+  });
+}
+function renderShotReview() {
+  const keys = [...shot.found.keys()].sort((a, b) => {
+    const [ca, na] = a.split('_'), [cb, nb] = b.split('_');
+    return ca === cb ? na - nb : ca.localeCompare(cb);
+  });
+  const already = keys.filter(k => S.flashed.has(k)).length;
+  let txt = `${keys.length} invaders lus sur ${shot.files} capture${shot.files > 1 ? 's' : ''}`;
+  if (keys.length) txt += ` : ${keys.length - already} nouveaux, ${already} déjà dans ta collection.`;
+  else txt += '.';
+  if (shot.bad) txt += ` ${shot.bad} image${shot.bad > 1 ? 's' : ''} ne ressemble${shot.bad > 1 ? 'nt' : ''} pas à la galerie Flash Invaders.`;
+  $('shotSummary').textContent = txt;
+
+  const grid = $('shotGrid');
+  grid.textContent = '';
+  for (const k of keys) {
+    const f = shot.found.get(k);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'shot-tile' + (S.flashed.has(k) ? ' have' : '') + (shot.off.has(k) ? ' off' : '');
+    b.setAttribute('aria-pressed', String(!shot.off.has(k)));
+    if (!f.thumb) f.thumb = f.photo ? canvasThumb(f.photo, 128) : f.labelURL;
+    const img = document.createElement('img');
+    img.src = f.thumb; img.alt = '';
+    const sp = document.createElement('span');
+    sp.textContent = (S.byKey.get(k) || { id: k }).id;
+    b.append(img, sp);
+    b.addEventListener('click', () => {
+      if (shot.off.has(k)) shot.off.delete(k); else shot.off.add(k);
+      b.classList.toggle('off', shot.off.has(k));
+      b.setAttribute('aria-pressed', String(!shot.off.has(k)));
+      updateShotButton();
+    });
+    grid.appendChild(b);
+  }
+
+  const fixList = $('shotFixList');
+  fixList.textContent = '';
+  $('shotFix').hidden = !shot.unread.length;
+  shot.unread.slice(0, 30).forEach((c, i) => {
+    const li = document.createElement('li');
+    const img = document.createElement('img');
+    img.src = c.labelURL; img.alt = 'Étiquette illisible';
+    const inp = document.createElement('input');
+    inp.type = 'text'; inp.id = 'shotFix' + i;
+    inp.placeholder = 'ex. LDN_12';
+    inp.value = c.guess.includes('?') ? '' : c.guess;
+    inp.setAttribute('aria-label', 'Code de cet invader');
+    inp.autocapitalize = 'characters';
+    const ok = document.createElement('button');
+    ok.type = 'button'; ok.className = 'btn small'; ok.textContent = 'OK';
+    const skip = document.createElement('button');
+    skip.type = 'button'; skip.className = 'btn small'; skip.textContent = 'Ignorer';
+    ok.addEventListener('click', () => {
+      const key = keyOf(inp.value);
+      if (!/^[A-Z]+_\d+$/.test(key) || !S.cities.has(key.split('_')[0])) { toast('Code non reconnu. Écris-le comme sur l’étiquette, par exemple LDN_12.'); return; }
+      ShotImport.learn(c.label, key);
+      shot.unread = shot.unread.filter(x => x !== c);
+      addFound(c, key);
+      retryUnread();
+      renderShotReview();
+    });
+    skip.addEventListener('click', () => { shot.unread = shot.unread.filter(x => x !== c); renderShotReview(); });
+    li.append(img, inp, ok, skip);
+    fixList.appendChild(li);
+  });
+
+  $('shotReview').hidden = false;
+  updateShotButton();
+}
+function updateShotButton() {
+  const n = [...shot.found.keys()].filter(k => !shot.off.has(k) && !S.flashed.has(k)).length;
+  const btn = $('shotApply');
+  btn.textContent = n ? `Importer ${n} invader${n > 1 ? 's' : ''}` : 'Mettre à jour les photos';
+  btn.disabled = !shot.found.size;
+}
+async function onShotApply() {
+  if (!shot) return;
+  const withPhotos = $('shotPhotos').checked;
+  const btn = $('shotApply');
+  btn.disabled = true;
+  let added = 0, photos = 0;
+  for (const [k, f] of shot.found) {
+    if (shot.off.has(k)) continue;
+    if (!S.flashed.has(k)) { S.flashed.add(k); added++; }
+    if (withPhotos && f.photo) {
+      let has = null;
+      try { has = await store.get('photos', k); } catch (e) { /* aucune */ }
+      if (!has) {
+        const blob = await new Promise(r => f.photo.toBlob(r, 'image/jpeg', .85));
+        const thumb = canvasThumb(f.photo, 128);
+        await store.put('photos', k, blob);
+        await store.put('thumbs', k, thumb);
+        S.thumbs.set(k, thumb);
+        photos++;
+      }
+    }
+  }
+  await saveFlashed();
+  const first = flashedLayer.getLayers().length === 0;
+  renderFlashed(); renderStats(); renderNear(false);
+  toast(`${added} invader${added > 1 ? 's' : ''} ajouté${added > 1 ? 's' : ''}` + (photos ? `, ${photos} photo${photos > 1 ? 's' : ''}` : ''));
+  shot = null;
+  $('shotReview').hidden = true;
+  showTab('cities');
+  if (first && flashedLayer.getLayers().length) map.fitBounds(flashedLayer.getBounds(), { padding: [40, 40], maxZoom: 14 });
+}
+
 // ---------- Sauvegarde ----------
 const blobToDataURL = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(b); });
 async function dataURLToBlob(u) { return (await fetch(u)).blob(); }
@@ -722,6 +884,8 @@ function bind() {
   });
   document.addEventListener('click', e => { if (!$('searchForm').contains(e.target)) $('searchResults').hidden = true; });
 
+  $('shotFiles').addEventListener('change', onShots);
+  $('shotApply').addEventListener('click', onShotApply);
   $('importParse').addEventListener('click', onParse);
   $('importApply').addEventListener('click', onApply);
   $('importFile').addEventListener('change', async e => {

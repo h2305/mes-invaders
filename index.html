@@ -124,6 +124,25 @@
   </div>
 
   <div class="panel-body" data-view="import" hidden>
+    <section class="shots" aria-labelledby="shotsTitle">
+      <h3 id="shotsTitle">Depuis tes captures Flash Invaders</h3>
+      <p class="help">Dans Flash Invaders, ouvre <b>Gallery</b> et fais des captures d'écran en faisant défiler jusqu'en bas. Choisis-les toutes ici : l'app lit les codes et récupère les photos. Les captures ne quittent pas ton téléphone.</p>
+      <label class="btn primary" for="shotFiles">Choisir mes captures</label>
+      <input id="shotFiles" type="file" accept="image/*" multiple hidden>
+      <p id="shotStatus" class="shot-status" role="status" hidden></p>
+      <div id="shotReview" class="preview" hidden>
+        <p id="shotSummary"></p>
+        <div id="shotFix" class="shot-fix" hidden>
+          <p class="help">Ces étiquettes n'ont pas pu être lues. Tape le code affiché (une seule fois suffit pour une nouvelle ville, l'app apprend ses lettres).</p>
+          <ul id="shotFixList"></ul>
+        </div>
+        <p class="help small">Touche un invader pour l'exclure de l'import.</p>
+        <div id="shotGrid" class="shot-grid"></div>
+        <label class="check"><input id="shotPhotos" type="checkbox" checked> Ajouter les photos de la galerie (tes propres photos ne sont jamais remplacées)</label>
+        <button id="shotApply" class="btn primary" type="button">Importer</button>
+      </div>
+    </section>
+    <h3 class="sub">Ou colle une liste de codes</h3>
     <p class="help">Colle ta liste d'invaders flashés : un par ligne, séparés par des virgules ou mélangés à du texte. Les formats <code>PA_1234</code>, <code>PA 1234</code>, <code>PA-1234</code> et <code>pa_01</code> sont reconnus.</p>
     <textarea id="importText" rows="8" placeholder="PA_0001, PA_1240, LDN_12&#10;MARS_45&#10;TK 102"></textarea>
     <div class="row">
@@ -159,6 +178,7 @@
 
 <script src="vendor/leaflet.js"></script>
 <script src="vendor/leaflet.markercluster.js"></script>
+<script src="shots.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

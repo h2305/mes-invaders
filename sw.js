@@ -1,7 +1,7 @@
 // Hors ligne : l'app et la base sont mises en cache ; les tuiles de carte vues sont gardées (2000 max).
-const APP = 'mes-invaders-app-v1';
+const APP = 'mes-invaders-app-v2';
 const TILES = 'mes-invaders-tiles-v1';
-const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'data/invaders.json', 'manifest.webmanifest',
+const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'shots.js', 'data/invaders.json', 'manifest.webmanifest',
   'vendor/leaflet.js', 'vendor/leaflet.css', 'vendor/leaflet.markercluster.js', 'vendor/MarkerCluster.css',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 
